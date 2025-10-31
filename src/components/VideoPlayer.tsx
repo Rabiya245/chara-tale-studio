@@ -32,6 +32,38 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
     canvas.width = 1280;
     canvas.height = 720;
 
+    // Load character images
+    const characterImages: (HTMLImageElement | null)[] = [];
+    let imagesLoaded = 0;
+    const totalImages = videoData.characters.filter(char => char.imageUrl).length;
+
+    const checkAllImagesLoaded = () => {
+      if (imagesLoaded === totalImages && isPlaying) {
+        animationRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    videoData.characters.forEach((char, index) => {
+      if (char.imageUrl) {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          imagesLoaded++;
+          characterImages[index] = img;
+          checkAllImagesLoaded();
+        };
+        img.onerror = () => {
+          console.error(`Failed to load image for ${char.name}`);
+          imagesLoaded++;
+          characterImages[index] = null;
+          checkAllImagesLoaded();
+        };
+        img.src = char.imageUrl;
+      } else {
+        characterImages[index] = null;
+      }
+    });
+
     const animate = (timestamp: number) => {
       if (!isPlaying) return;
 
@@ -52,23 +84,58 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
       ctx.textAlign = 'center';
       ctx.fillText(videoData.title, canvas.width / 2, 100);
 
-      // Draw characters
+      // Draw characters with their actual images
       const time = timestamp / 1000;
       videoData.characters.forEach((char, index) => {
         const x = (canvas.width / (videoData.characters.length + 1)) * (index + 1);
         const y = canvas.height / 2 + Math.sin(time + index) * 50;
+        const imgSize = 120;
 
-        // Draw character circle
-        ctx.beginPath();
-        ctx.arc(x, y, 60, 0, Math.PI * 2);
-        ctx.fillStyle = `hsl(${(index * 360) / videoData.characters.length}, 70%, 60%)`;
-        ctx.fill();
+        // Draw character image if loaded
+        if (characterImages[index]) {
+          ctx.save();
+          
+          // Create circular clip for character image
+          ctx.beginPath();
+          ctx.arc(x, y, imgSize / 2, 0, Math.PI * 2);
+          ctx.clip();
+          
+          // Draw the character image
+          ctx.drawImage(
+            characterImages[index]!,
+            x - imgSize / 2,
+            y - imgSize / 2,
+            imgSize,
+            imgSize
+          );
+          
+          ctx.restore();
+          
+          // Draw border around character
+          ctx.beginPath();
+          ctx.arc(x, y, imgSize / 2, 0, Math.PI * 2);
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+        } else {
+          // Fallback circle if image not loaded
+          ctx.beginPath();
+          ctx.arc(x, y, 60, 0, Math.PI * 2);
+          ctx.fillStyle = `hsl(${(index * 360) / videoData.characters.length}, 70%, 60%)`;
+          ctx.fill();
+        }
 
-        // Draw character name
+        // Draw character name with shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 10;
         ctx.fillStyle = '#ffffff';
-        ctx.font = '24px Arial';
+        ctx.font = 'bold 24px Arial';
         ctx.fillText(char.name, x, y + 100);
+        ctx.shadowBlur = 0;
+        
+        // Draw character role
         ctx.font = '16px Arial';
+        ctx.fillStyle = '#94a3b8';
         ctx.fillText(char.role, x, y + 125);
       });
 
@@ -83,7 +150,7 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
       }
     };
 
-    if (isPlaying) {
+    if (isPlaying && totalImages === 0) {
       animationRef.current = requestAnimationFrame(animate);
     }
 
