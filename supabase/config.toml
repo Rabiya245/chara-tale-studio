@@ -1,1 +1,4 @@
 project_id = "dmpbyuacpjlmjjcfoffg"
+
+[functions.generate-video]
+verify_jwt = true
