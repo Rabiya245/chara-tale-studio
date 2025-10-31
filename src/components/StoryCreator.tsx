@@ -5,8 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import CharacterForm from "./CharacterForm";
+import VideoPlayer from "./VideoPlayer";
 import { toast } from "sonner";
 import { Sparkles, Download, Save } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Character {
   id: string;
@@ -22,6 +24,7 @@ const StoryCreator = () => {
   const [storyDescription, setStoryDescription] = useState("");
   const [characters, setCharacters] = useState<Character[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedVideo, setGeneratedVideo] = useState<any>(null);
 
   const handleAddCharacter = (character: Character) => {
     if (characters.length >= 4) {
@@ -49,13 +52,31 @@ const StoryCreator = () => {
     }
 
     setIsGenerating(true);
-    toast.info("AI video generation will be implemented soon!");
+    toast.info("Generating your animated video with AI...");
     
-    // Placeholder for AI generation
-    setTimeout(() => {
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-video', {
+        body: {
+          storyTitle,
+          storyDescription,
+          characters
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        setGeneratedVideo(data.video);
+        toast.success("Video generated successfully!");
+      } else {
+        throw new Error(data?.error || "Failed to generate video");
+      }
+    } catch (error) {
+      console.error('Video generation error:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to generate video");
+    } finally {
       setIsGenerating(false);
-      toast.success("Video generation complete! (Demo)");
-    }, 3000);
+    }
   };
 
   return (
@@ -141,27 +162,38 @@ const StoryCreator = () => {
         </CardContent>
       </Card>
 
-      <div className="flex gap-4 justify-center">
-        <Button
-          onClick={handleGenerateVideo}
-          disabled={isGenerating}
-          className="bg-gradient-primary hover:opacity-90 transition-opacity gap-2"
-          size="lg"
-        >
-          <Sparkles className="w-5 h-5" />
-          {isGenerating ? "Generating..." : "Generate Video"}
-        </Button>
-        
-        <Button variant="outline" size="lg" className="gap-2">
-          <Save className="w-5 h-5" />
-          Save Draft
-        </Button>
-        
-        <Button variant="outline" size="lg" className="gap-2">
-          <Download className="w-5 h-5" />
-          Download
-        </Button>
-      </div>
+      {!generatedVideo ? (
+        <div className="flex gap-4 justify-center">
+          <Button
+            onClick={handleGenerateVideo}
+            disabled={isGenerating}
+            className="bg-gradient-primary hover:opacity-90 transition-opacity gap-2"
+            size="lg"
+          >
+            <Sparkles className="w-5 h-5" />
+            {isGenerating ? "Generating..." : "Generate Video"}
+          </Button>
+          
+          <Button variant="outline" size="lg" className="gap-2">
+            <Save className="w-5 h-5" />
+            Save Draft
+          </Button>
+        </div>
+      ) : (
+        <>
+          <VideoPlayer videoData={generatedVideo} />
+          
+          <div className="flex gap-4 justify-center">
+            <Button
+              onClick={() => setGeneratedVideo(null)}
+              variant="outline"
+              size="lg"
+            >
+              Create New Video
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   );
 };
