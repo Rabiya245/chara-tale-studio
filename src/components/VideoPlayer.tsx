@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Download, Play, Pause } from "lucide-react";
 import { Character } from "./StoryCreator";
 
+interface Scene {
+  scene: number;
+  description: string;
+  duration: number;
+  characters: string[];
+}
+
 interface VideoPlayerProps {
   videoData: {
     id: string;
@@ -21,9 +28,38 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null);
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const animationRef = useRef<number>();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const startTimeRef = useRef<number>(0);
+
+  // Parse scenes from AI response
+  useEffect(() => {
+    try {
+      const scenesText = videoData.scenes;
+      // Try to extract JSON from the AI response
+      const jsonMatch = scenesText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsedScenes = JSON.parse(jsonMatch[0]);
+        setScenes(parsedScenes);
+      } else {
+        // Fallback: create simple scenes from description
+        const words = videoData.description.split(' ');
+        const chunkSize = Math.ceil(words.length / 5);
+        const defaultScenes = Array.from({ length: 5 }, (_, i) => ({
+          scene: i + 1,
+          description: words.slice(i * chunkSize, (i + 1) * chunkSize).join(' '),
+          duration: 6,
+          characters: videoData.characters.map(c => c.name)
+        }));
+        setScenes(defaultScenes);
+      }
+    } catch (error) {
+      console.error('Error parsing scenes:', error);
+    }
+  }, [videoData]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -70,87 +106,163 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
 
     const animate = (timestamp: number) => {
       if (!isPlaying) return;
+      
+      if (startTimeRef.current === 0) {
+        startTimeRef.current = timestamp;
+      }
+      
+      const elapsedTime = (timestamp - startTimeRef.current) / 1000;
 
       // Clear canvas
       ctx.fillStyle = '#0A0F29';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw gradient background
+      // Dynamic gradient background
       const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, '#1e3a8a');
-      gradient.addColorStop(1, '#7c3aed');
+      const hue = (elapsedTime * 20) % 360;
+      gradient.addColorStop(0, `hsl(${hue}, 70%, 30%)`);
+      gradient.addColorStop(1, `hsl(${(hue + 60) % 360}, 70%, 40%)`);
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Draw title
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 48px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(videoData.title, canvas.width / 2, 100);
+      // Calculate current scene
+      let timeIntoScenes = elapsedTime;
+      let sceneIndex = 0;
+      if (scenes.length > 0) {
+        for (let i = 0; i < scenes.length; i++) {
+          if (timeIntoScenes < scenes[i].duration) {
+            sceneIndex = i;
+            break;
+          }
+          timeIntoScenes -= scenes[i].duration;
+        }
+        setCurrentSceneIndex(sceneIndex);
+      }
 
-      // Draw characters with their actual images
-      const time = timestamp / 1000;
+      const currentScene = scenes[sceneIndex] || null;
+      const sceneProgress = currentScene ? timeIntoScenes / currentScene.duration : 0;
+
+      // Draw scene description box
+      if (currentScene) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(50, 50, canvas.width - 100, 120);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Scene ${currentScene.scene}`, 80, 90);
+        
+        ctx.font = '18px Arial';
+        const maxWidth = canvas.width - 160;
+        const words = currentScene.description.split(' ');
+        let line = '';
+        let y = 125;
+        
+        for (const word of words) {
+          const testLine = line + word + ' ';
+          const metrics = ctx.measureText(testLine);
+          if (metrics.width > maxWidth && line !== '') {
+            ctx.fillText(line, 80, y);
+            line = word + ' ';
+            y += 25;
+          } else {
+            line = testLine;
+          }
+        }
+        ctx.fillText(line, 80, y);
+      }
+
+      // Animate characters based on scene
       videoData.characters.forEach((char, index) => {
-        const x = (canvas.width / (videoData.characters.length + 1)) * (index + 1);
-        const y = canvas.height / 2 + Math.sin(time + index) * 50;
-        const imgSize = 120;
+        const baseX = (canvas.width / (videoData.characters.length + 1)) * (index + 1);
+        const baseY = canvas.height / 2 + 100;
+        
+        // Create different animations based on scene progress
+        let x = baseX;
+        let y = baseY;
+        let scale = 1;
+        let rotation = 0;
+
+        // Entrance animation at scene start
+        if (sceneProgress < 0.15) {
+          const entranceProgress = sceneProgress / 0.15;
+          y = baseY + (canvas.height - baseY) * (1 - entranceProgress);
+          scale = 0.5 + 0.5 * entranceProgress;
+        } else {
+          // Movement during scene
+          const moveProgress = (sceneProgress - 0.15) / 0.85;
+          x = baseX + Math.sin(elapsedTime * 2 + index) * 80;
+          y = baseY + Math.cos(elapsedTime * 1.5 + index) * 40;
+          scale = 1 + Math.sin(elapsedTime * 3 + index) * 0.1;
+          rotation = Math.sin(elapsedTime + index) * 0.1;
+        }
+
+        const imgSize = 150 * scale;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
 
         // Draw character image if loaded
         if (characterImages[index]) {
-          ctx.save();
-          
           // Create circular clip for character image
           ctx.beginPath();
-          ctx.arc(x, y, imgSize / 2, 0, Math.PI * 2);
+          ctx.arc(0, 0, imgSize / 2, 0, Math.PI * 2);
           ctx.clip();
           
           // Draw the character image
           ctx.drawImage(
             characterImages[index]!,
-            x - imgSize / 2,
-            y - imgSize / 2,
+            -imgSize / 2,
+            -imgSize / 2,
             imgSize,
             imgSize
           );
           
           ctx.restore();
           
-          // Draw border around character
+          // Draw animated border
+          ctx.save();
+          ctx.translate(x, y);
           ctx.beginPath();
-          ctx.arc(x, y, imgSize / 2, 0, Math.PI * 2);
-          ctx.strokeStyle = '#3b82f6';
-          ctx.lineWidth = 4;
+          ctx.arc(0, 0, imgSize / 2, 0, Math.PI * 2);
+          ctx.strokeStyle = `hsl(${(elapsedTime * 50 + index * 60) % 360}, 70%, 60%)`;
+          ctx.lineWidth = 5;
           ctx.stroke();
+          ctx.restore();
         } else {
           // Fallback circle if image not loaded
           ctx.beginPath();
-          ctx.arc(x, y, 60, 0, Math.PI * 2);
+          ctx.arc(0, 0, imgSize / 2, 0, Math.PI * 2);
           ctx.fillStyle = `hsl(${(index * 360) / videoData.characters.length}, 70%, 60%)`;
           ctx.fill();
+          ctx.restore();
         }
 
         // Draw character name with shadow
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = 15;
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 24px Arial';
-        ctx.fillText(char.name, x, y + 100);
+        ctx.font = 'bold 22px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(char.name, x, y + imgSize / 2 + 30);
         ctx.shadowBlur = 0;
         
         // Draw character role
         ctx.font = '16px Arial';
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(char.role, x, y + 125);
+        ctx.fillStyle = '#e0e0e0';
+        ctx.fillText(char.role, x, y + imgSize / 2 + 52);
       });
 
       // Update time
-      setCurrentTime(time % videoData.duration);
+      setCurrentTime(elapsedTime);
 
-      if (time < videoData.duration) {
+      if (elapsedTime < videoData.duration) {
         animationRef.current = requestAnimationFrame(animate);
       } else {
         setIsPlaying(false);
         setCurrentTime(0);
+        startTimeRef.current = 0;
       }
     };
 
@@ -166,6 +278,9 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
   }, [isPlaying, videoData]);
 
   const togglePlay = () => {
+    if (!isPlaying) {
+      startTimeRef.current = 0;
+    }
     setIsPlaying(!isPlaying);
   };
 
@@ -174,6 +289,7 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
     if (!canvas) return;
 
     recordedChunksRef.current = [];
+    startTimeRef.current = 0;
     const stream = canvas.captureStream(30); // 30 FPS
     const mediaRecorder = new MediaRecorder(stream, {
       mimeType: 'video/webm;codecs=vp9',
@@ -203,6 +319,7 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
       mediaRecorderRef.current.stop();
       setIsPlaying(false);
       setCurrentTime(0);
+      startTimeRef.current = 0;
     }
   };
 
@@ -256,12 +373,26 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
           )}
         </div>
 
-        <div className="text-sm text-muted-foreground">
-          <strong>AI Generated Scenes:</strong>
-          <pre className="mt-2 p-4 bg-muted rounded-lg overflow-auto max-h-40">
-            {videoData.scenes}
-          </pre>
-        </div>
+        {scenes.length > 0 && (
+          <div className="text-sm text-muted-foreground">
+            <strong>Scene Breakdown ({scenes.length} scenes):</strong>
+            <div className="mt-2 space-y-2">
+              {scenes.map((scene, index) => (
+                <div 
+                  key={scene.scene} 
+                  className={`p-3 rounded-lg transition-all ${
+                    index === currentSceneIndex 
+                      ? 'bg-primary/20 border-2 border-primary' 
+                      : 'bg-muted'
+                  }`}
+                >
+                  <div className="font-semibold">Scene {scene.scene} ({scene.duration}s)</div>
+                  <div className="text-xs mt-1">{scene.description}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
