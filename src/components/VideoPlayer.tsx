@@ -172,86 +172,136 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
         ctx.fillText(line, 80, y);
       }
 
-      // Animate characters based on scene
+      // Analyze scene for actions and animate characters accordingly
+      const sceneDescription = currentScene?.description.toLowerCase() || '';
+      const actionKeywords = {
+        walk: ['walk', 'walking', 'moved', 'approaching', 'stepped'],
+        talk: ['said', 'asked', 'replied', 'spoke', 'told', 'exclaimed'],
+        run: ['ran', 'running', 'rushed', 'hurried'],
+        jump: ['jump', 'jumped', 'leaped'],
+        sit: ['sit', 'sitting', 'sat'],
+        stand: ['stand', 'standing', 'stood'],
+        look: ['look', 'looking', 'gazed', 'stared'],
+        fight: ['fight', 'fighting', 'attacked', 'battle'],
+        celebrate: ['celebrate', 'celebrated', 'cheered', 'happy', 'victory']
+      };
+
+      // Detect actions in scene
+      const detectedActions: string[] = [];
+      Object.entries(actionKeywords).forEach(([action, keywords]) => {
+        if (keywords.some(keyword => sceneDescription.includes(keyword))) {
+          detectedActions.push(action);
+        }
+      });
+
+      // Animate characters based on their role in the scene and detected actions
       videoData.characters.forEach((char, index) => {
-        const baseX = (canvas.width / (videoData.characters.length + 1)) * (index + 1);
-        const baseY = canvas.height / 2 + 100;
+        const isInScene = currentScene?.characters.includes(char.name);
+        const charNameInScene = sceneDescription.includes(char.name.toLowerCase());
         
-        // Create different animations based on scene progress
+        // Base positioning
+        const baseX = (canvas.width / (videoData.characters.length + 1)) * (index + 1);
+        const baseY = canvas.height - 250;
+        
         let x = baseX;
         let y = baseY;
         let scale = 1;
-        let rotation = 0;
+        let opacity = isInScene ? 1 : 0.3;
 
-        // Entrance animation at scene start
-        if (sceneProgress < 0.15) {
-          const entranceProgress = sceneProgress / 0.15;
-          y = baseY + (canvas.height - baseY) * (1 - entranceProgress);
-          scale = 0.5 + 0.5 * entranceProgress;
+        // Scene entrance animation
+        if (sceneProgress < 0.2) {
+          const entranceProgress = sceneProgress / 0.2;
+          if (isInScene) {
+            y = canvas.height + (baseY - canvas.height) * entranceProgress;
+            opacity = entranceProgress;
+          }
         } else {
-          // Movement during scene
-          const moveProgress = (sceneProgress - 0.15) / 0.85;
-          x = baseX + Math.sin(elapsedTime * 2 + index) * 80;
-          y = baseY + Math.cos(elapsedTime * 1.5 + index) * 40;
-          scale = 1 + Math.sin(elapsedTime * 3 + index) * 0.1;
-          rotation = Math.sin(elapsedTime + index) * 0.1;
+          // Action-based animations
+          const actionTime = (sceneProgress - 0.2) / 0.8;
+          
+          if (charNameInScene || isInScene) {
+            // Walking animation
+            if (detectedActions.includes('walk')) {
+              x = baseX + Math.sin(elapsedTime * 4) * 30;
+              y = baseY + Math.abs(Math.sin(elapsedTime * 8)) * 10;
+            }
+            
+            // Running animation
+            if (detectedActions.includes('run')) {
+              x = baseX + Math.sin(elapsedTime * 6) * 50;
+              y = baseY + Math.abs(Math.sin(elapsedTime * 12)) * 15;
+            }
+            
+            // Jumping animation
+            if (detectedActions.includes('jump')) {
+              const jumpPhase = (elapsedTime * 2) % 2;
+              if (jumpPhase < 1) {
+                y = baseY - Math.sin(jumpPhase * Math.PI) * 100;
+              }
+            }
+            
+            // Talking animation (subtle head movement)
+            if (detectedActions.includes('talk')) {
+              scale = 1 + Math.sin(elapsedTime * 8) * 0.05;
+            }
+            
+            // Celebration animation
+            if (detectedActions.includes('celebrate')) {
+              y = baseY + Math.sin(elapsedTime * 5) * 20;
+              scale = 1 + Math.sin(elapsedTime * 4) * 0.15;
+            }
+            
+            // Fighting animation
+            if (detectedActions.includes('fight')) {
+              x = baseX + Math.sin(elapsedTime * 10) * 40;
+              scale = 1 + Math.abs(Math.sin(elapsedTime * 10)) * 0.2;
+            }
+          }
         }
 
-        const imgSize = 150 * scale;
+        const imgSize = 200 * scale;
 
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(rotation);
-
-        // Draw character image if loaded
+        // Draw character image
         if (characterImages[index]) {
-          // Create circular clip for character image
-          ctx.beginPath();
-          ctx.arc(0, 0, imgSize / 2, 0, Math.PI * 2);
-          ctx.clip();
+          ctx.save();
+          ctx.globalAlpha = opacity;
           
-          // Draw the character image
+          // Shadow for depth
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = 20;
+          ctx.shadowOffsetY = 10;
+          
           ctx.drawImage(
             characterImages[index]!,
-            -imgSize / 2,
-            -imgSize / 2,
+            x - imgSize / 2,
+            y - imgSize / 2,
             imgSize,
             imgSize
           );
           
-          ctx.restore();
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetY = 0;
           
-          // Draw animated border
-          ctx.save();
-          ctx.translate(x, y);
-          ctx.beginPath();
-          ctx.arc(0, 0, imgSize / 2, 0, Math.PI * 2);
-          ctx.strokeStyle = `hsl(${(elapsedTime * 50 + index * 60) % 360}, 70%, 60%)`;
-          ctx.lineWidth = 5;
-          ctx.stroke();
+          // Draw character name if active in scene
+          if (isInScene || charNameInScene) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 4;
+            ctx.strokeText(char.name, x, y + imgSize / 2 + 40);
+            ctx.fillText(char.name, x, y + imgSize / 2 + 40);
+          }
+          
           ctx.restore();
         } else {
-          // Fallback circle if image not loaded
-          ctx.beginPath();
-          ctx.arc(0, 0, imgSize / 2, 0, Math.PI * 2);
+          // Fallback shape
+          ctx.save();
+          ctx.globalAlpha = opacity;
           ctx.fillStyle = `hsl(${(index * 360) / videoData.characters.length}, 70%, 60%)`;
-          ctx.fill();
+          ctx.fillRect(x - imgSize / 2, y - imgSize / 2, imgSize, imgSize);
           ctx.restore();
         }
-
-        // Draw character name with shadow
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowBlur = 15;
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 22px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(char.name, x, y + imgSize / 2 + 30);
-        ctx.shadowBlur = 0;
-        
-        // Draw character role
-        ctx.font = '16px Arial';
-        ctx.fillStyle = '#e0e0e0';
-        ctx.fillText(char.role, x, y + imgSize / 2 + 52);
       });
 
       // Update time
