@@ -14,7 +14,6 @@ interface CharacterFormProps {
 
 const CharacterForm = ({ onAddCharacter }: CharacterFormProps) => {
   const [name, setName] = useState("");
-  const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
   const [role, setRole] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -33,7 +32,7 @@ const CharacterForm = ({ onAddCharacter }: CharacterFormProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name || !age || !gender || !role) {
+    if (!name || !gender || !role) {
       toast.error("Please fill in all character details");
       return;
     }
@@ -41,7 +40,6 @@ const CharacterForm = ({ onAddCharacter }: CharacterFormProps) => {
     const newCharacter: Character = {
       id: Date.now().toString(),
       name,
-      age,
       gender,
       role,
       imageUrl,
@@ -51,7 +49,6 @@ const CharacterForm = ({ onAddCharacter }: CharacterFormProps) => {
     
     // Reset form
     setName("");
-    setAge("");
     setGender("");
     setRole("");
     setImageUrl("");
@@ -61,7 +58,7 @@ const CharacterForm = ({ onAddCharacter }: CharacterFormProps) => {
     <Card className="border-border bg-card">
       <CardContent className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name">Character Name</Label>
               <Input
@@ -69,18 +66,6 @@ const CharacterForm = ({ onAddCharacter }: CharacterFormProps) => {
                 placeholder="Enter name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="bg-muted border-border"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="age">Age</Label>
-              <Input
-                id="age"
-                type="number"
-                placeholder="Enter age"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
                 className="bg-muted border-border"
               />
             </div>

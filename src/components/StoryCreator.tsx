@@ -7,13 +7,12 @@ import { Button } from "@/components/ui/button";
 import CharacterForm from "./CharacterForm";
 import VideoPlayer from "./VideoPlayer";
 import { toast } from "sonner";
-import { Sparkles, Download, Save } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Character {
   id: string;
   name: string;
-  age: string;
   gender: string;
   role: string;
   imageUrl: string;
@@ -142,7 +141,7 @@ const StoryCreator = () => {
                       <div className="flex-1 space-y-1">
                         <h3 className="font-semibold text-foreground">{character.name}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {character.age} years • {character.gender}
+                          {character.gender}
                         </p>
                         <p className="text-sm text-accent">{character.role}</p>
                       </div>
@@ -163,7 +162,7 @@ const StoryCreator = () => {
       </Card>
 
       {!generatedVideo ? (
-        <div className="flex gap-4 justify-center">
+        <div className="flex justify-center">
           <Button
             onClick={handleGenerateVideo}
             disabled={isGenerating}
@@ -172,11 +171,6 @@ const StoryCreator = () => {
           >
             <Sparkles className="w-5 h-5" />
             {isGenerating ? "Generating..." : "Generate Video"}
-          </Button>
-          
-          <Button variant="outline" size="lg" className="gap-2">
-            <Save className="w-5 h-5" />
-            Save Draft
           </Button>
         </div>
       ) : (
