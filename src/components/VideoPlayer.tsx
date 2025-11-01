@@ -19,7 +19,11 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null);
   const animationRef = useRef<number>();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -165,21 +169,50 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
     setIsPlaying(!isPlaying);
   };
 
-  const downloadVideo = () => {
+  const startRecording = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Create a temporary link to download canvas as image
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `${videoData.title.replace(/\s+/g, '_')}_preview.png`;
-        link.href = url;
-        link.click();
-        URL.revokeObjectURL(url);
-      }
+    recordedChunksRef.current = [];
+    const stream = canvas.captureStream(30); // 30 FPS
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'video/webm;codecs=vp9',
     });
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunksRef.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      setRecordedVideoUrl(url);
+      setIsRecording(false);
+    };
+
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.start();
+    setIsRecording(true);
+    setIsPlaying(true);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsPlaying(false);
+      setCurrentTime(0);
+    }
+  };
+
+  const downloadVideo = () => {
+    if (!recordedVideoUrl) return;
+
+    const link = document.createElement('a');
+    link.download = `${videoData.title.replace(/\s+/g, '_')}_video.webm`;
+    link.href = recordedVideoUrl;
+    link.click();
   };
 
   return (
@@ -191,22 +224,36 @@ const VideoPlayer = ({ videoData }: VideoPlayerProps) => {
           style={{ aspectRatio: '16/9' }}
         />
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <Button onClick={togglePlay} size="lg" className="gap-2">
-              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-              {isPlaying ? 'Pause' : 'Play'}
-            </Button>
+            {!isRecording ? (
+              <>
+                <Button onClick={togglePlay} size="lg" className="gap-2">
+                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                  {isPlaying ? 'Pause' : 'Play'}
+                </Button>
+                <Button onClick={startRecording} variant="default" size="lg" className="gap-2">
+                  <Download className="w-5 h-5" />
+                  Record Video
+                </Button>
+              </>
+            ) : (
+              <Button onClick={stopRecording} variant="destructive" size="lg" className="gap-2">
+                Stop Recording
+              </Button>
+            )}
             
             <div className="text-sm text-muted-foreground">
               {currentTime.toFixed(1)}s / {videoData.duration}s
             </div>
           </div>
 
-          <Button onClick={downloadVideo} variant="outline" size="lg" className="gap-2">
-            <Download className="w-5 h-5" />
-            Download Preview
-          </Button>
+          {recordedVideoUrl && (
+            <Button onClick={downloadVideo} variant="outline" size="lg" className="gap-2">
+              <Download className="w-5 h-5" />
+              Download Video
+            </Button>
+          )}
         </div>
 
         <div className="text-sm text-muted-foreground">
