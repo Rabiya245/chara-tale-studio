@@ -49,25 +49,25 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+    <div className="min-h-screen bg-gradient-cinematic">
+      <header className="border-b border-border/50 bg-card/50 backdrop-blur-lg p-4 sticky top-0 z-50">
+        <div className="container mx-auto flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Story Creator
+            Story Visualization
           </h1>
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
+          <div className="flex gap-4">
+            <Button onClick={() => navigate("/my-stories")} variant="outline" className="border-border/50">
+              My Stories
+            </Button>
+            <Button onClick={handleLogout} variant="outline" className="border-border/50 gap-2">
+              <LogOut className="w-4 h-4" />
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto p-6">
         <StoryCreator />
       </main>
     </div>

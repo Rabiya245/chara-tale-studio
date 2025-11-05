@@ -55,8 +55,44 @@ export type Database = {
           },
         ]
       }
+      slides: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          script: string
+          slide_number: number
+          story_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          script: string
+          slide_number: number
+          story_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          script?: string
+          slide_number?: number
+          story_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slides_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stories: {
         Row: {
+          background_url: string | null
           created_at: string
           description: string
           id: string
@@ -66,6 +102,7 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          background_url?: string | null
           created_at?: string
           description: string
           id?: string
@@ -75,6 +112,7 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          background_url?: string | null
           created_at?: string
           description?: string
           id?: string

@@ -17,10 +17,12 @@ const CharacterForm = ({ onAddCharacter }: CharacterFormProps) => {
   const [gender, setGender] = useState("");
   const [role, setRole] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImageUrl(reader.result as string);
