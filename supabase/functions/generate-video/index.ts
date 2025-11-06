@@ -31,7 +31,7 @@ serve(async (req) => {
     for (let i = 1; i <= 4; i++) {
       console.log(`Generating slide ${i}...`);
       
-      // Generate script for this slide
+      // Generate detailed script for this slide
       const scriptResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -43,16 +43,25 @@ serve(async (req) => {
           messages: [
             {
               role: 'system',
-              content: 'You are a creative storyteller. Generate detailed, engaging narrative scripts for animated story slides.'
+              content: 'You are a master storyteller and screenwriter. Create highly detailed, cinematic narrative scripts that capture every visual and emotional detail of the scene.'
             },
             {
               role: 'user',
-              content: `Create a detailed narrative script for slide ${i} of 4 for the story:
+              content: `Create an extremely detailed narrative script for slide ${i} of 4 for the story:
+
 Title: ${storyTitle}
 Description: ${storyDescription}
-Characters: ${characters.map((c: any) => `${c.name} (${c.role})`).join(', ')}
+Characters: ${characters.map((c: any) => `${c.name} (${c.role}, ${c.gender})`).join(', ')}
 
-The script should be 3-4 paragraphs describing the scene, character actions, dialogue, and emotions. Make it cinematic and engaging.`
+Requirements:
+- Write 4-5 detailed paragraphs (minimum 200 words)
+- Describe the exact scene setting, time of day, lighting, and atmosphere
+- Detail each character's precise actions, body language, facial expressions, and positioning
+- Include specific dialogue with emotional context
+- Describe the mood, camera angles, and cinematic framing
+- Make it photo-realistic and highly visual, as if describing a movie scene
+
+Make this slide progress the story naturally from slide ${i === 1 ? 'the beginning' : `slide ${i-1}`}.`
             }
           ]
         })
@@ -65,32 +74,7 @@ The script should be 3-4 paragraphs describing the scene, character actions, dia
       const scriptData = await scriptResponse.json();
       const script = scriptData.choices[0].message.content;
 
-      // Generate image prompt based on script and characters
-      const imagePromptResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            {
-              role: 'user',
-              content: `Create a detailed image generation prompt for an animated story scene. Include:
-Script: ${script}
-Characters: ${characters.map((c: any) => `${c.name} - ${c.role} (${c.gender})`).join(', ')}
-
-Generate a single detailed prompt (max 100 words) for an AI image generator that creates a cinematic animated scene with these characters in the scene described by the script. Include style: "cinematic animation, vibrant colors, detailed background".`
-            }
-          ]
-        })
-      });
-
-      const imagePromptData = await imagePromptResponse.json();
-      const imagePrompt = imagePromptData.choices[0].message.content;
-
-      // Generate the animated scene image
+      // Generate photo-realistic image using character images as reference
       const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -102,7 +86,41 @@ Generate a single detailed prompt (max 100 words) for an AI image generator that
           messages: [
             {
               role: 'user',
-              content: imagePrompt
+              content: [
+                {
+                  type: 'text',
+                  text: `Create a photo-realistic, cinematic image for this story scene:
+
+SCENE SCRIPT:
+${script}
+
+STORY CONTEXT:
+Title: ${storyTitle}
+Description: ${storyDescription}
+
+CHARACTERS IN THIS SCENE:
+${characters.map((c: any) => `- ${c.name}: ${c.role} (${c.gender})`).join('\n')}
+
+CRITICAL REQUIREMENTS:
+1. Use the uploaded character images as EXACT references - match their faces, hair, clothes, and posture PRECISELY
+2. Keep ALL character appearances IDENTICAL to the reference images - do not change facial features, hairstyles, or outfits
+3. Create a realistic background that matches the scene's mood, time of day, and location from the script
+4. Ensure natural, consistent lighting and shadows between characters and background
+5. Make it look photo-realistic and cinematic, as if captured from a real movie scene
+6. The characters should be positioned and posed according to the script description
+7. Maintain perfect visual cohesion - characters must look like they naturally belong in the scene
+
+STYLE: Photo-realistic, cinematic lighting, professional photography, natural shadows, coherent composition, movie-quality production`
+                },
+                ...characters.map((c: any) => ({
+                  type: 'image_url',
+                  image_url: { url: c.imageUrl }
+                })),
+                ...(backgroundUrl ? [{
+                  type: 'image_url',
+                  image_url: { url: backgroundUrl }
+                }] : [])
+              ]
             }
           ],
           modalities: ['image', 'text']
@@ -110,7 +128,9 @@ Generate a single detailed prompt (max 100 words) for an AI image generator that
       });
 
       if (!imageResponse.ok) {
-        throw new Error(`Failed to generate image for slide ${i}`);
+        const errorText = await imageResponse.text();
+        console.error(`Image generation error for slide ${i}:`, errorText);
+        throw new Error(`Failed to generate image for slide ${i}: ${errorText}`);
       }
 
       const imageData = await imageResponse.json();
@@ -126,7 +146,7 @@ Generate a single detailed prompt (max 100 words) for an AI image generator that
         script: script
       });
 
-      console.log(`Slide ${i} generated successfully`);
+      console.log(`Slide ${i} generated successfully with detailed script and photo-realistic image`);
     }
 
     // Save slides to database
