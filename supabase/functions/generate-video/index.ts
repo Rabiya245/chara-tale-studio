@@ -74,7 +74,7 @@ Make this slide progress the story naturally from slide ${i === 1 ? 'the beginni
       const scriptData = await scriptResponse.json();
       const script = scriptData.choices[0].message.content;
 
-      // Generate photo-realistic image using character images as reference
+      // Generate ultra-realistic image using character images as reference
       const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -89,7 +89,7 @@ Make this slide progress the story naturally from slide ${i === 1 ? 'the beginni
               content: [
                 {
                   type: 'text',
-                  text: `Create a photo-realistic, cinematic image for this story scene:
+                  text: `Create an ultra-realistic AI-rendered image for this story scene using the exact uploaded references:
 
 SCENE SCRIPT:
 ${script}
@@ -101,16 +101,44 @@ Description: ${storyDescription}
 CHARACTERS IN THIS SCENE:
 ${characters.map((c: any) => `- ${c.name}: ${c.role} (${c.gender})`).join('\n')}
 
-CRITICAL REQUIREMENTS:
-1. Use the uploaded character images as EXACT references - match their faces, hair, clothes, and posture PRECISELY
-2. Keep ALL character appearances IDENTICAL to the reference images - do not change facial features, hairstyles, or outfits
-3. Create a realistic background that matches the scene's mood, time of day, and location from the script
-4. Ensure natural, consistent lighting and shadows between characters and background
-5. Make it look photo-realistic and cinematic, as if captured from a real movie scene
-6. The characters should be positioned and posed according to the script description
-7. Maintain perfect visual cohesion - characters must look like they naturally belong in the scene
+CRITICAL PHOTO-REALISM REQUIREMENTS:
+1. EXACT CHARACTER PRESERVATION - Use the uploaded character images as absolute references:
+   - Match EVERY facial feature precisely (eyes, nose, mouth, face shape, expressions)
+   - Keep hairstyle, hair color, and hair texture IDENTICAL
+   - Preserve skin tone and skin texture exactly as shown
+   - Replicate outfit, clothing details, and accessories exactly
+   - Maintain the same body posture and proportions
 
-STYLE: Photo-realistic, cinematic lighting, professional photography, natural shadows, coherent composition, movie-quality production`
+2. EXACT BACKGROUND PRESERVATION - Use the uploaded background image as absolute reference:
+   - Keep the background environment IDENTICAL (same location, same perspective)
+   - Preserve all background details, objects, and elements exactly
+   - Maintain the same lighting conditions and light direction
+   - Keep the same atmospheric conditions and mood
+
+3. ULTRA-REALISTIC RENDERING REQUIREMENTS:
+   - Photo-realistic style - this must look like a real photograph, NOT animated or cartoon-like
+   - 8K clarity and ultra-high definition details
+   - Natural, professional lighting with accurate shadows and highlights
+   - Smooth, lifelike skin textures and fabric details
+   - Realistic depth of field and perspective
+   - Accurate color balance and color grading
+   - Natural expressions and body language matching the script
+
+4. TECHNICAL SPECIFICATIONS:
+   - Professional photography quality
+   - Cinematic composition and framing
+   - Natural bokeh and depth effects where appropriate
+   - Realistic ambient occlusion and global illumination
+   - Perfect visual cohesion between characters and environment
+   - Lifelike materials, textures, and surface properties
+
+5. POSITIONING AND COMPOSITION:
+   - Position characters according to the script description
+   - Ensure natural interaction between characters and environment
+   - Maintain realistic spatial relationships and scale
+   - Create dynamic, engaging composition following cinematic rules
+
+FINAL OUTPUT MUST BE: A real-photo quality image, ultra-realistic, 8K clarity, natural lighting, lifelike expressions, professional photography standard - indistinguishable from a real photograph.`
                 },
                 ...characters.map((c: any) => ({
                   type: 'image_url',
